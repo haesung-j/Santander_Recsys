@@ -39,14 +39,15 @@ def mrr(true_purchases: dict, recommendations: dict, k=3):
     return mrr
 
 
-# https://github.com/statisticianinstilettos/recmetrics/blob/master/recmetrics/metrics.py#L130
 def _precision(predicted, actual) -> float:
+    # ref: # https://github.com/statisticianinstilettos/recmetrics/blob/master/recmetrics/metrics.py#L130
     prec = [value for value in predicted if value in actual]
     prec = float(len(prec)) / float(len(predicted))
     return prec
 
 
 def _apk(actual: list, predicted: list, k=10) -> float:
+    # ref: # https://github.com/statisticianinstilettos/recmetrics/blob/master/recmetrics/metrics.py#L130
     if not predicted or not actual:
         return 0.0
 
@@ -69,6 +70,7 @@ def _apk(actual: list, predicted: list, k=10) -> float:
 
 
 def _ark(actual: list, predicted: list, k=10) -> float:
+    # ref: # https://github.com/statisticianinstilettos/recmetrics/blob/master/recmetrics/metrics.py#L130
     if len(predicted) > k:
         predicted = predicted[:k]
 
