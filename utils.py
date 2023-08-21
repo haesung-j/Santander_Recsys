@@ -56,6 +56,46 @@ def get_implicit_binary(product_table: pd.DataFrame) -> pd.DataFrame:
     return prod_train_df
 
 
+def get_implicit_count(product_table: pd.DataFrame, train_months: int = 5) -> pd.DataFrame:
+    """
+    주어진 train_months 기간 동안 상품 보유한 기간을 count한 implicit feedback datatframe 생성
+    :param product_table: 상품 보유 정보가 sparse한 형태로 저장되어 있는 데이터 프레임 (cols: Customer_id, Fetch_date, products)
+    :param train_months: 과거 몇 달동안의 feedback을 사용할 것인지 결정하는 요소로, 각 상품 count의 max값이 됨
+    :return: prod_train_df: 고객별 각 상품별 보유 기간을 월단위로 count (cols: Customer_id, product_id, purchase)
+    """
+    # 데이터 상 가장 마지막 달(test)과 이전 달 추출
+    date = pd.to_datetime(product_table['Fetch_date']).unique()
+    last_month = str(date.max().date())
+    train_months = ([str((date.max() - pd.DateOffset(months=i)).date()) for i in range(1, train_months+1)])[::-1]
+    prod_id, prod_id_inv = get_product_dictionary(product_table)
+    print(f"Train 기간: {train_months}, Test 기간: {last_month}")
+
+    # 1. feedback count 시작하는 달에 변동이 일어났던 고객 인덱스를 추출한 뒤
+    prod_train = product_table[product_table['Fetch_date'].isin(train_months)]
+    first_month_cust_idx = set(product_table[product_table['Fetch_date'] == train_months[0]]['Customer_id'])
+
+    # 2. 변동이 이전에 일어났던 고객을 따로 추출(마지막 변동이 train_months[0] 달에 고객 보유 현황이 됨)
+    rest_customer = product_table[product_table['Fetch_date'] < train_months[0]]  # 이전 변동 기록 중에서
+    rest_customer = rest_customer[~rest_customer['Customer_id'].isin(first_month_cust_idx)]  # 변동이 이전에 일어난 고객 추출
+    rest_customer = rest_customer.sort_values(by=['Customer_id', 'Fetch_date'])  # 고객별 날짜 순으로 정렬한 뒤
+    rest_customer = rest_customer.groupby('Customer_id').last().reset_index()  # 마지막 변동을 가져옴
+
+    # 3. 고객 merge
+    prod_train = pd.concat([prod_train, rest_customer], axis=0, ignore_index=True)
+
+    # 4. 고객별 각 상품의 월별 보유 여부 sum -> train_months 동안의 각 상품별 보유기간
+    prod_train = prod_train.drop('Fetch_date', axis=1).groupby('Customer_id', as_index=False).sum()
+
+    # 5. sparse 형태를 stack 형태로 melt
+    prod_train_df = pd.melt(prod_train, id_vars='Customer_id', value_vars=prod_train.columns.tolist()[1:])
+    prod_train_df['product_id'] = prod_train_df['variable'].map(prod_id)
+    prod_train_df = prod_train_df.drop('variable', axis=1)
+    prod_train_df = prod_train_df[['Customer_id', 'product_id', 'value']].rename(columns={'value': 'purchase'})
+    prod_train_df = prod_train_df[prod_train_df['purchase'] > 0].reset_index(drop=True)   # 상품을 보유하지 않은 관측치 제외
+
+    return prod_train_df
+
+
 def get_test_set(product_table: pd.DataFrame) -> pd.DataFrame:
     """
     마지막 달에 구매가 일어난 고객의 새로 구매한 상품만 추출
@@ -124,9 +164,12 @@ def get_test_set(product_table: pd.DataFrame) -> pd.DataFrame:
 if __name__ == '__main__':
     DATA_PATH = './data'
     product_table = load_product_table(DATA_PATH)
-    train_df = get_implicit_binary(product_table)    # 4월에 고객별 보유중인 상품
+    train_df_binary = get_implicit_binary(product_table)    # 4월에 고객별 보유중인 상품
+    train_df_count = get_implicit_count(product_table, train_months=5)  # 2015/12 - 2015/4월에 고객별 보유중인 상품
     test_df = get_test_set(product_table)            # 5월에 새로 구매한 (고객,상품)
-    print(train_df.shape)
-    print(train_df.head())
+    print(train_df_binary.shape)
+    print(train_df_binary.head())
+    print(train_df_count.shape)
+    print(train_df_count.head())
     print(test_df.shape)
     print(test_df.head())
