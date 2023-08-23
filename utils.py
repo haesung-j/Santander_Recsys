@@ -45,10 +45,13 @@ def get_implicit_binary(product_table: pd.DataFrame) -> pd.DataFrame:
     prod_train = prod_train.drop('Fetch_date', axis=1).reset_index(drop=False)
     # prod_train = prod_train.set_index('Customer_id')
 
-    prod_train_df = pd.melt(prod_train, id_vars='Customer_id', value_vars=prod_train.columns.tolist()[1:])
-    prod_train_df['product_id'] = prod_train_df['variable'].map(prod_id)
-    prod_train_df = prod_train_df.drop('variable', axis=1)
-    prod_train_df = prod_train_df[['Customer_id', 'product_id', 'value']].rename(columns={'value': 'purchase'})
+    prod_train_df = pd.melt(prod_train,
+                            id_vars='Customer_id',
+                            var_name='product_name',
+                            value_vars=prod_train.columns.tolist()[1:])
+    prod_train_df['product_id'] = prod_train_df['product_name'].map(prod_id)
+    prod_train_df = prod_train_df[['Customer_id', 'product_id', 'value', 'product_name']].rename(
+        columns={'value': 'purchase'})
     prod_train_df = prod_train_df[prod_train_df['purchase'] > 0].reset_index(drop=True)
     # status_train = status_tab[status_tab['Fetch_date'] != last_month]
     # status_train = status_train.sort_values(by=['Customer_id', 'Fetch_date'])
@@ -87,10 +90,13 @@ def get_implicit_count(product_table: pd.DataFrame, train_months: int = 5) -> pd
     prod_train = prod_train.drop('Fetch_date', axis=1).groupby('Customer_id', as_index=False).sum()
 
     # 5. sparse 형태를 stack 형태로 melt
-    prod_train_df = pd.melt(prod_train, id_vars='Customer_id', value_vars=prod_train.columns.tolist()[1:])
-    prod_train_df['product_id'] = prod_train_df['variable'].map(prod_id)
-    prod_train_df = prod_train_df.drop('variable', axis=1)
-    prod_train_df = prod_train_df[['Customer_id', 'product_id', 'value']].rename(columns={'value': 'purchase'})
+    prod_train_df = pd.melt(prod_train,
+                            id_vars='Customer_id',
+                            var_name='product_name',
+                            value_vars=prod_train.columns.tolist()[1:])
+    prod_train_df['product_id'] = prod_train_df['product_name'].map(prod_id)
+    prod_train_df = prod_train_df[['Customer_id', 'product_id', 'value', 'product_name']].rename(
+        columns={'value': 'purchase'})
     prod_train_df = prod_train_df[prod_train_df['purchase'] > 0].reset_index(drop=True)   # 상품을 보유하지 않은 관측치 제외
 
     return prod_train_df
